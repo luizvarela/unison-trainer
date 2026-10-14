@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Intervalos de Uníssono</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: score sheet on the left (play bar + sing bar, like the video), practice controls and results on the right. */
+:root {
+  --paper: #f7f8fa;
+  --sheet: #ffffff;
+  --ink: #16191f;
+  --muted: #646b78;
+  --line: #d9dde5;
+  --playhead: #3b8fd9;
+  --good: #1f9d63;
+  --near: #d08a12;
+  --off: #d2423b;
+  --band: rgba(31,157,99,.13);
+  --chip: #eef1f6;
+  --display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #12141a; --sheet: #1a1d25; --ink: #e9ecf2; --muted: #9aa2b1; --line: #2c313d;
+    --playhead: #5aa7ee; --good: #3cc489; --near: #f0aa3a; --off: #ff6b62; --band: rgba(60,196,137,.16);
+    --chip: #232733; color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body { background: var(--paper); color: var(--ink); font: 15px/1.5 var(--body); padding: 24px 20px 40px; }
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 20px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 20px; }
+h1 { font: 700 clamp(26px, 4vw, 38px)/1.05 var(--display); margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+h1 small { display: block; font: 500 15px/1.4 var(--body); color: var(--muted); letter-spacing: 0; margin-top: 6px; }
+.hint { color: var(--muted); font-size: 13px; max-width: 36ch; }
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+@media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--sheet); border: 1px solid var(--line); border-radius: 10px; padding: 18px; min-width: 0; }
+.status { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.phase { font: 700 13px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; padding: 7px 10px; border-radius: 6px; background: var(--chip); color: var(--muted); }
+.phase.listen { background: var(--playhead); color: #fff; }
+.phase.sing { background: var(--good); color: #fff; }
+.progress { font: 400 13px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.target { font: 700 22px/1 var(--display); }
+.target span { font: 400 15px var(--body); color: var(--muted); margin-left: 6px; }
+.staffbox { overflow-x: auto; }
+svg.staff { display: block; width: 100%; min-width: 520px; height: auto; }
+.staff .ln { stroke: var(--ink); stroke-width: 1.1; }
+.staff .bar { stroke: var(--ink); stroke-width: 1.6; }
+.staff .clef { fill: var(--muted); font-family: "Apple Symbols", "Noto Music", "Segoe UI Symbol", serif; }
+.staff .ts { fill: var(--muted); font: 700 25px/1 var(--display); }
+.staff .note { fill: none; stroke: var(--ink); stroke-width: 2.2; }
+.staff .stem { stroke: var(--ink); stroke-width: 1.4; }
+.staff .ghost { fill: none; stroke: var(--muted); stroke-width: 1.6; stroke-dasharray: 3 3; }
+.staff .acc { fill: var(--ink); font: 20px/1 serif; }
+.staff .accg { fill: var(--muted); font: 20px/1 serif; }
+.staff .rest { fill: var(--ink); }
+.staff .bandr { fill: var(--band); }
+.staff .ph { stroke: var(--playhead); stroke-width: 4; }
+.staff .tr { fill: none; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
+.staff .tr.good { stroke: var(--good); } .staff .tr.near { stroke: var(--near); } .staff .tr.off { stroke: var(--off); }
+.staff .lbl { fill: var(--muted); font: 600 11px var(--mono); letter-spacing: .1em; }
+.staff .res { font: 700 12px var(--mono); }
+.tuner { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 18px; align-items: center; margin-top: 14px; }
+@media (max-width: 520px) { .tuner { grid-template-columns: minmax(0, 1fr); } }
+.sung { font: 700 40px/1 var(--display); font-variant-numeric: tabular-nums; }
+.sung small { display: block; font: 400 13px var(--mono); color: var(--muted); margin-top: 6px; }
+.meter { position: relative; height: 54px; }
+.meter .scale { position: absolute; inset: 18px 0 18px 0; border-radius: 9px; background: linear-gradient(90deg, var(--off) 0%, var(--near) 25%, var(--good) 42%, var(--good) 58%, var(--near) 75%, var(--off) 100%); opacity: .28; }
+.meter .zone { position: absolute; top: 14px; bottom: 14px; border: 2px solid var(--good); border-radius: 8px; }
+.meter .needle { position: absolute; top: 6px; bottom: 6px; width: 4px; margin-left: -2px; border-radius: 2px; background: var(--ink); transition: left .06s linear, opacity .2s; }
+.meter .ticks { position: absolute; left: 0; right: 0; bottom: -6px; display: flex; justify-content: space-between; font: 11px var(--mono); color: var(--muted); }
+.level { height: 4px; background: var(--chip); border-radius: 2px; margin-top: 12px; overflow: hidden; }
+.level i { display: block; height: 100%; width: 0; background: var(--playhead); }
+.verdict { margin-top: 12px; min-height: 24px; font-weight: 700; }
+.verdict.good { color: var(--good); } .verdict.near { color: var(--near); } .verdict.off { color: var(--off); } .verdict.silent { color: var(--muted); }
+.side { display: grid; gap: 16px; }
+.btnrow { display: flex; gap: 10px; flex-wrap: wrap; }
+button { font: 700 15px var(--body); border-radius: 8px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); padding: 10px 14px; cursor: pointer; }
+button:hover { border-color: var(--muted); }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--playhead); outline-offset: 2px; }
+button.primary { background: var(--playhead); border-color: var(--playhead); color: #fff; flex: 1; font-size: 17px; padding: 13px 16px; }
+button:disabled { opacity: .5; cursor: default; }
+label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+.field { display: grid; gap: 14px; }
+select, input[type=text] { font: 15px var(--body); padding: 9px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--sheet); color: var(--ink); width: 100%; }
+input[type=range] { width: 100%; accent-color: var(--playhead); }
+.rowlbl { display: flex; justify-content: space-between; }
+.rowlbl b { color: var(--ink); font: 600 13px var(--mono); }
+.checks { display: grid; gap: 8px; }
+.checks label { display: flex; gap: 8px; align-items: center; color: var(--ink); font-size: 14px; }
+h2 { font: 700 15px var(--display); margin: 0 0 10px; letter-spacing: .02em; }
+.score { display: flex; gap: 14px; align-items: baseline; margin-bottom: 10px; }
+.score b { font: 700 30px var(--display); font-variant-numeric: tabular-nums; }
+.score span { color: var(--muted); font-size: 13px; }
+ol.results { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 360px; overflow-y: auto; }
+ol.results li { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 14px; padding: 6px 8px; border-radius: 6px; background: var(--chip); }
+ol.results .n { font: 400 12px var(--mono); color: var(--muted); }
+.chips { display: flex; gap: 4px; }
+.c { font: 600 12px var(--mono); padding: 2px 6px; border-radius: 4px; color: #fff; font-variant-numeric: tabular-nums; }
+.c.good { background: var(--good); } .c.near { background: var(--near); } .c.off { background: var(--off); } .c.silent { background: var(--muted); }
+.empty { color: var(--muted); font-size: 14px; }
+.err { color: var(--off); font-weight: 700; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--muted); margin-top: 6px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Intervalos de Uníssono <small>Exercício #12 · the piano plays a note, then you sing the same note in the empty bar.</small></h1>
+    <p class="hint">Use headphones so the mic only hears your voice. Any octave counts: sing the note where it's comfortable.</p>
+  </header>
+
+  <div class="grid">
+    <section class="card" aria-label="Score and tuner">
+      <div class="status">
+        <span class="phase" id="phase">Ready</span>
+        <span class="target" id="target">—</span>
+        <span class="progress" id="progress"></span>
+      </div>
+      <div class="staffbox"><svg class="staff" id="staff" viewBox="0 0 760 270" role="img" aria-label="Grand staff with the current note"></svg></div>
+      <div class="legend">
+        <span><i style="background:var(--good)"></i>in tune</span>
+        <span><i style="background:var(--near)"></i>close</span>
+        <span><i style="background:var(--off)"></i>off</span>
+        <span><i style="background:var(--playhead)"></i>playhead</span>
+      </div>
+      <div class="tuner">
+        <div class="sung" id="sung">–<small id="sungHz">mic off</small></div>
+        <div>
+          <div class="meter" aria-hidden="true">
+            <div class="scale"></div>
+            <div class="zone" id="zone"></div>
+            <div class="needle" id="needle" style="left:50%;opacity:.15"></div>
+            <div class="ticks"><span>−50¢ flat</span><span>0</span><span>sharp +50¢</span></div>
+          </div>
+          <div class="level"><i id="level"></i></div>
+        </div>
+      </div>
+      <div class="verdict" id="verdict"></div>
+    </section>
+
+    <aside class="side">
+      <div class="card field">
+        <div class="btnrow">
+          <button class="primary" id="startBtn">Start</button>
+          <button id="hearBtn" title="Play the current note again">Hear note</button>
+        </div>
+        <label for="seqSel">Sequence
+          <select id="seqSel">
+            <option value="video">Video #12 · 28 notes, in order</option>
+            <option value="videoShuffle">Video #12 · 28 notes, shuffled</option>
+            <option value="naturals">Random natural notes</option>
+            <option value="chromatic">Random chromatic notes</option>
+            <option value="custom">Custom…</option>
+          </select>
+        </label>
+        <label for="customIn" id="customWrap" hidden>Your notes (letters or solfège, e.g. “D B F# Eb” or “Ré Si Fá”)
+          <input type="text" id="customIn" value="D B G E">
+        </label>
+        <label for="startAt">Start at note
+          <select id="startAt"></select>
+        </label>
+        <label for="tempo"><span class="rowlbl">Tempo <b id="tempoV">108 bpm</b></span>
+          <input type="range" id="tempo" min="50" max="140" step="1" value="108">
+        </label>
+        <label for="tol"><span class="rowlbl">In-tune tolerance <b id="tolV">±25¢</b></span>
+          <input type="range" id="tol" min="10" max="50" step="5" value="25">
+        </label>
+        <div class="checks">
+          <label><input type="checkbox" id="anyOct" checked> Any octave counts</label>
+          <label><input type="checkbox" id="showTarget" checked> Show target note in the sing bar</label>
+          <label><input type="checkbox" id="click"> Metronome clicks while singing</label>
+          <label><input type="checkbox" id="loop"> Loop when the sequence ends</label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>This session</h2>
+        <div class="score"><b id="pct">–</b><span id="pctSub">sing a few notes to see your score</span></div>
+        <ol class="results" id="results"><li class="empty" style="display:block;background:none">Results appear here after each sing bar.</li></ol>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+"use strict";
+// ---------- Music data ----------
+const LETTERS = ["C","D","E","F","G","A","B"];
+const LETTER_PC = { C:0, D:2, E:4, F:5, G:7, A:9, B:11 };
+const SOLF = { C:"Dó", D:"Ré", E:"Mi", F:"Fá", G:"Sol", A:"Lá", B:"Si" };
+const SHARP_NAMES = ["C","C♯","D","D♯","E","F","F♯","G","G♯","A","A♯","B"];
+const CHROM_SPELL = [["C",0],["C",1],["D",0],["E",-1],["E",0],["F",0],["F",1],["G",0],["A",-1],["A",0],["B",-1],["B",0]];
+
+// Exercise #12 from the video, read from its audio: upper (treble) note of each octave pair, in MIDI.
+// The bass plays the same note one octave lower. Hits start at 6.664 s and repeat every 4.4445 s.
+const VIDEO = [
+  ["C",0,60],["D",0,62],["B",0,59],["F",0,65],["C",1,61],["F",1,66],["E",0,64],["C",1,61],
+  ["E",0,64],["D",1,63],["F",1,66],["G",0,67],["G",1,68],["F",0,65],["D",0,62],["C",1,61],
+  ["C",0,60],["D",1,63],["G",1,56],["A",1,58],["B",0,59],["C",0,60],["A",0,57],["D",0,62],
+  ["A",1,58],["D",1,63],["A",0,57],["G",1,56]
+].map(([letter, acc, midi], i) => mkNote(letter, acc, midi, 6.664 + 4.4445 * i, i));
+
+function mkNote(letter, acc, midi, sampleAt = null, videoIdx = null) {
+  const natMidi = midi - acc;
+  const octave = Math.floor(natMidi / 12) - 1;
+  const step = LETTERS.indexOf(letter) + 7 * octave;
+  return { letter, acc, midi, step, sampleAt, videoIdx };
+}
+function placeNote(letter, acc) {
+  let midi = 60 + ((LETTER_PC[letter] + acc + 12) % 12);
+  if (midi > 66) midi -= 12;   // keep the upper note between G3 and F♯4, like the video
+  return mkNote(letter, acc, midi);
+}
+const accSym = a => a === 1 ? "♯" : a === -1 ? "♭" : "";
+const noteLabel = n => n.letter + accSym(n.acc);
+const solfLabel = n => SOLF[n.letter] + accSym(n.acc);
+
+function parseNotes(text) {
+  const out = [];
+  const solf = { do:"C", "dó":"C", re:"D", "ré":"D", mi:"E", fa:"F", "fá":"F", sol:"G", la:"A", "lá":"A", si:"B", ti:"B" };
+  for (const raw of text.split(/[\s,;]+/).filter(Boolean)) {
+    const t = raw.toLowerCase();
+    let m = t.match(/^(dó|do|ré|re|mi|fá|fa|sol|lá|la|si|ti)([#♯b♭]?)$/);
+    let letter, accCh;
+    if (m) { letter = solf[m[1]]; accCh = m[2]; }
+    else if ((m = t.match(/^([a-g])([#♯b♭]?)$/))) { letter = m[1].toUpperCase(); accCh = m[2]; }
+    else continue;
+    const acc = accCh === "#" || accCh === "♯" ? 1 : accCh === "b" || accCh === "♭" ? -1 : 0;
+    out.push(placeNote(letter, acc));
+  }
+  return out;
+}
+function randomNotes(chromatic, n = 12) {
+  const out = []; let prev = -1;
+  while (out.length < n) {
+    let pc = chromatic ? Math.floor(Math.random() * 12) : [0,2,4,5,7,9,11][Math.floor(Math.random() * 7)];
+    if (pc === prev) continue; prev = pc;
+    const [l, a] = CHROM_SPELL[pc];
+    out.push(placeNote(l, a));
+  }
+  return out;
+}
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+// ---------- Settings ----------
+const $ = id => document.getElementById(id);
+const els = { seq: $("seqSel"), custom: $("customIn"), customWrap: $("customWrap"), startAt: $("startAt"), tempo: $("tempo"), tol: $("tol"),
+  anyOct: $("anyOct"), showTarget: $("showTarget"), click: $("click"), loop: $("loop") };
+function loadSettings() {
+  try {
+    const s = JSON.parse(localStorage.getItem("unison-settings") || "{}");
+    for (const k of ["seq","custom","tempo","tol"]) if (s[k] != null) els[k].value = s[k];
+    for (const k of ["anyOct","showTarget","click","loop"]) if (s[k] != null) els[k].checked = s[k];
+  } catch {}
+}
+function saveSettings() {
+  try {
+    localStorage.setItem("unison-settings", JSON.stringify({ seq: els.seq.value, custom: els.custom.value, tempo: els.tempo.value, tol: els.tol.value,
+      anyOct: els.anyOct.checked, showTarget: els.showTarget.checked, click: els.click.checked, loop: els.loop.checked }));
+  } catch {}
+}
+function buildSequence() {
+  switch (els.seq.value) {
+    case "video": return VIDEO.slice();
+    case "videoShuffle": return shuffle(VIDEO);
+    case "naturals": return randomNotes(false);
+    case "chromatic": return randomNotes(true);
+    case "custom": { const p = parseNotes(els.custom.value); return p.length ? p : VIDEO.slice(0, 3); }
+  }
+}
+function refreshStartAt() {
+  const seq = buildSequence();
+  els.startAt.innerHTML = seq.map((n, i) => `<option value="${i}">${i + 1}. ${noteLabel(n)} · ${solfLabel(n)}</option>`).join("");
+  els.customWrap.hidden = els.seq.value !== "custom";
+  state.seq = seq; state.idx = 0; renderStaff(); updateLabels();
+}
+
+// ---------- Audio ----------
+let ctx = null, master = null, analyser = null, micBuf = null, pianoBuf = null, micOn = false;
+async function ensureAudio() {
+  if (!ctx) {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const comp = ctx.createDynamicsCompressor();
+    master = ctx.createGain(); master.gain.value = 0.9;
+    master.connect(comp).connect(ctx.destination);
+    fetch("piano.m4a").then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(b => { pianoBuf = b; }).catch(() => {});
+  }
+  if (ctx.state === "suspended") await ctx.resume();
+}
+async function ensureMic() {
+  if (micOn) return true;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+    const src = ctx.createMediaStreamSource(stream);
+    analyser = ctx.createAnalyser(); analyser.fftSize = 2048;
+    src.connect(analyser);
+    micBuf = new Float32Array(analyser.fftSize);
+    micOn = true; return true;
+  } catch (e) {
+    $("verdict").className = "verdict err";
+    $("verdict").textContent = "Microphone blocked. Allow mic access in the browser's address bar, then press Start again.";
+    return false;
+  }
+}
+
+// Plays one piano hit. Video notes use the real recording; others use a small piano-like synth.
+function playHit(note, t, dur) {
+  if (pianoBuf && note.sampleAt != null) {
+    const src = ctx.createBufferSource(); src.buffer = pianoBuf;
+    const g = ctx.createGain(); const len = Math.min(dur, 1.08);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(1, t + 0.004);
+    g.gain.setValueAtTime(1, t + len - 0.06); g.gain.linearRampToValueAtTime(0, t + len);
+    src.connect(g).connect(master);
+    src.start(t, Math.max(0, note.sampleAt - 0.01), len + 0.02);
+    return;
+  }
+  for (const midi of [note.midi, note.midi - 12]) synthPiano(midi, t, dur);
+}
+function synthPiano(midi, t, dur) {
+  const f = 440 * 2 ** ((midi - 69) / 12);
+  const out = ctx.createGain(); out.gain.value = 0.16;
+  const lp = ctx.createBiquadFilter(); lp.type = "lowpass";
+  lp.frequency.setValueAtTime(Math.min(9000, f * 12), t); lp.frequency.setTargetAtTime(Math.max(f * 3, 600), t, 0.4);
+  out.connect(lp).connect(master);
+  const parts = [1, .55, .32, .22, .14, .09, .06, .04];
+  const end = t + dur;
+  parts.forEach((amp, i) => {
+    const k = i + 1;
+    const o = ctx.createOscillator(); o.type = "sine";
+    o.frequency.value = f * k * Math.sqrt(1 + 0.0004 * k * k);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(amp, t + 0.005);
+    g.gain.setTargetAtTime(amp * 0.2, t + 0.005, 0.9 / k);
+    g.gain.setTargetAtTime(0, end - 0.06, 0.05);
+    o.connect(g).connect(out); o.start(t); o.stop(end + 0.4);
+  });
+}
+function playClick(t, accent) {
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.frequency.value = accent ? 1760 : 1320;
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.25, t + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
+  o.connect(g).connect(master); o.start(t); o.stop(t + 0.05);
+}
+
+// ---------- Pitch detection (YIN) ----------
+function detectPitch(buf, sr) {
+  const half = buf.length >> 1;
+  const minTau = Math.floor(sr / 1100), maxTau = Math.min(half - 1, Math.floor(sr / 65));
+  const d = new Float32Array(maxTau + 1);
+  for (let tau = 1; tau <= maxTau; tau++) {
+    let s = 0;
+    for (let i = 0; i < half; i++) { const v = buf[i] - buf[i + tau]; s += v * v; }
+    d[tau] = s;
+  }
+  let run = 0; d[0] = 1;
+  for (let tau = 1; tau <= maxTau; tau++) { run += d[tau]; d[tau] = run ? d[tau] * tau / run : 1; }
+  let tau = -1;
+  for (let t = minTau; t <= maxTau; t++) {
+    if (d[t] < 0.15) { while (t + 1 <= maxTau && d[t + 1] < d[t]) t++; tau = t; break; }
+  }
+  if (tau < 0) return null;
+  let better = tau;
+  if (tau > 1 && tau < maxTau) {
+    const a = d[tau - 1], b = d[tau], c = d[tau + 1], den = a + c - 2 * b;
+    if (den) better = tau + (a - c) / (2 * den);
+  }
+  return { hz: sr / better, clarity: 1 - d[tau] };
+}
+
+// ---------- State ----------
+const state = {
+  seq: [], idx: 0, running: false, t0: 0, M: 0, cycleNote: null,
+  samples: [], trace: [], lastResults: null, history: [], recent: [], live: null,
+};
+const measureDur = () => 4 * 60 / +els.tempo.value;
+
+function centsTo(midiFloat, target) {
+  let m = midiFloat;
+  if (els.anyOct.checked) m = m + 12 * Math.round((target - m) / 12);
+  return (m - target) * 100;
+}
+function classify(c) {
+  const tol = +els.tol.value, a = Math.abs(c);
+  return a <= tol ? "good" : a <= Math.max(tol * 2.5, 50) ? "near" : "off";
+}
+
+// ---------- Sequencer ----------
+async function start() {
+  await ensureAudio();
+  if (!(await ensureMic())) return;
+  saveSettings();
+  if (!state.seq.length) refreshStartAt();
+  state.idx = Math.min(+els.startAt.value || 0, state.seq.length - 1);
+  state.running = true;
+  $("startBtn").textContent = "Stop";
+  $("verdict").className = "verdict"; $("verdict").textContent = "";
+  beginCycle(ctx.currentTime + 0.25);
+}
+function stop() {
+  state.running = false;
+  $("startBtn").textContent = "Start";
+  setPhase("Ready", "");
+}
+function beginCycle(t0) {
+  const note = state.seq[state.idx];
+  state.t0 = t0; state.M = measureDur(); state.cycleNote = note;
+  state.samples = []; state.trace = []; state.lastResults = null;
+  const half = state.M / 2;
+  playHit(note, t0, half); playHit(note, t0 + half, half);
+  if (els.click.checked) for (let b = 0; b < 4; b++) playClick(t0 + state.M + b * state.M / 4, b === 0);
+  renderStaff(); updateLabels();
+}
+function finishCycle() {
+  const note = state.cycleNote, results = [];
+  for (let slot = 0; slot < 2; slot++) {
+    const win = state.samples.filter(s => { const p = (s.ph - 1) * 2 - slot; return p >= 0.25 && p <= 0.97; });
+    const voiced = win.filter(s => s.cents != null);
+    if (!win.length || voiced.length / win.length < 0.3) { results.push({ cls: "silent" }); continue; }
+    const cs = voiced.map(s => s.cents).sort((a, b) => a - b);
+    const med = cs[Math.floor(cs.length / 2)];
+    const ms = voiced.map(s => s.midi).sort((a, b) => a - b);
+    results.push({ cls: classify(med), cents: med, sungMidi: ms[Math.floor(ms.length / 2)] });
+  }
+  state.lastResults = results;
+  state.history.unshift({ n: state.idx + 1, note, results });
+  showVerdict(note, results); renderResults(); renderStaff();
+  state.idx++;
+  if (state.idx >= state.seq.length) {
+    if (!els.loop.checked) { stop(); $("verdict").textContent += "  Sequence finished."; return; }
+    if (els.seq.value !== "video" && els.seq.value !== "custom") state.seq = buildSequence();
+    state.idx = 0;
+  }
+  beginCycle(state.t0 + 2 * state.M);
+}
+function showVerdict(note, rs) {
+  const v = $("verdict");
+  const sung = rs.filter(r => r.cls !== "silent");
+  if (!sung.length) { v.className = "verdict silent"; v.textContent = "I didn't hear you. Sing a little louder or move closer to the mic."; return; }
+  const worst = sung.reduce((a, b) => Math.abs(b.cents) > Math.abs(a.cents) ? b : a);
+  const avg = sung.reduce((s, r) => s + r.cents, 0) / sung.length;
+  const dir = avg > 0 ? "sharp (too high)" : "flat (too low)";
+  if (sung.every(r => r.cls === "good")) { v.className = "verdict good"; v.textContent = `In tune on ${noteLabel(note)} (${solfLabel(note)}). Average ${fmtC(avg)}.`; }
+  else if (worst.cls === "near") { v.className = "verdict near"; v.textContent = `Close. You were ${Math.abs(Math.round(avg))}¢ ${dir}.`; }
+  else { v.className = "verdict off"; v.textContent = `Off. You sang ${SHARP_NAMES[((Math.round(worst.sungMidi) % 12) + 12) % 12]} but the note was ${noteLabel(note)} (${solfLabel(note)}).`; }
+}
+const fmtC = c => (c >= 0 ? "+" : "−") + Math.abs(Math.round(c)) + "¢";
+
+// ---------- Main loop ----------
+let medianWin = [];
+function tick() {
+  requestAnimationFrame(tick);
+  let midi = null, rms = 0;
+  if (micOn) {
+    analyser.getFloatTimeDomainData(micBuf);
+    for (let i = 0; i < micBuf.length; i++) rms += micBuf[i] * micBuf[i];
+    rms = Math.sqrt(rms / micBuf.length);
+    if (rms > 0.008) {
+      const p = detectPitch(micBuf, ctx.sampleRate);
+      if (p && p.hz > 65 && p.hz < 1100) midi = 69 + 12 * Math.log2(p.hz / 440);
+    }
+    medianWin.push(midi); if (medianWin.length > 3) medianWin.shift();
+    const ok = medianWin.filter(x => x != null).sort((a, b) => a - b);
+    midi = ok.length >= 2 ? ok[Math.floor(ok.length / 2)] : null;
+    $("level").style.width = Math.min(100, rms * 600) + "%";
+  }
+  if (state.running) {
+    const ph = (ctx.currentTime - state.t0) / state.M;
+    const note = state.cycleNote;
+    if (ph < 0) setPhase("Get ready", "");
+    else if (ph < 1) setPhase("Listen", "listen");
+    else if (ph < 2) {
+      setPhase("Sing", "sing");
+      const cents = midi != null ? centsTo(midi, note.midi) : null;
+      state.samples.push({ ph, cents, midi });
+      state.trace.push({ ph, cents });
+    } else { finishCycle(); return; }
+    movePlayhead(Math.max(0, ph));
+    drawTrace();
+  }
+  updateTuner(midi);
+}
+let lastPhase = "";
+function setPhase(text, cls) {
+  if (text === lastPhase) return; lastPhase = text;
+  const p = $("phase"); p.textContent = text; p.className = "phase " + cls;
+}
+function updateTuner(midi) {
+  const needle = $("needle");
+  if (midi == null) { needle.style.opacity = .15; if (micOn) { $("sung").firstChild.nodeValue = "–"; $("sungHz").textContent = "listening…"; } return; }
+  const target = (state.cycleNote || state.seq[state.idx] || VIDEO[0]).midi;
+  const c = centsTo(midi, target);
+  const nearest = Math.round(midi);
+  $("sung").firstChild.nodeValue = SHARP_NAMES[((nearest % 12) + 12) % 12] + (Math.floor(nearest / 12) - 1);
+  $("sungHz").textContent = `${(440 * 2 ** ((midi - 69) / 12)).toFixed(1)} Hz · ${fmtC(c)} vs target`;
+  needle.style.opacity = 1;
+  needle.style.left = (50 + Math.max(-50, Math.min(50, c))) + "%";
+  needle.style.background = `var(--${classify(c)})`;
+}
+function updateLabels() {
+  const n = state.cycleNote && state.running ? state.cycleNote : state.seq[state.idx];
+  if (!n) return;
+  $("target").innerHTML = `${noteLabel(n)}<span>${solfLabel(n)}</span>`;
+  $("progress").textContent = `note ${state.idx + 1} of ${state.seq.length}`;
+  const tol = +els.tol.value;
+  $("zone").style.left = (50 - tol) + "%"; $("zone").style.width = (2 * tol) + "%";
+  $("tempoV").textContent = els.tempo.value + " bpm";
+  $("tolV").textContent = "±" + tol + "¢";
+}
+function renderResults() {
+  const all = state.history.flatMap(h => h.results).filter(r => r.cls !== "silent");
+  const good = all.filter(r => r.cls === "good").length;
+  $("pct").textContent = all.length ? Math.round(100 * good / all.length) + "%" : "–";
+  $("pctSub").textContent = all.length ? `${good} of ${all.length} sung notes in tune` : "sing a few notes to see your score";
+  $("results").innerHTML = state.history.slice(0, 60).map(h => `<li><span class="n">${h.n}</span><span>${noteLabel(h.note)} · ${solfLabel(h.note)}</span><span class="chips">${
+    h.results.map(r => `<span class="c ${r.cls}">${r.cls === "silent" ? "—" : fmtC(r.cents)}</span>`).join("")}</span></li>`).join("");
+}
+
+// ---------- Staff drawing ----------
+const SVGNS = "http://www.w3.org/2000/svg";
+const X0 = 96, XM = 428, X1 = 752;           // left edge, middle barline, right edge
+const TB = 98, BB = 218, SP = 12;            // treble bottom line (E4), bass bottom line (G2), line spacing
+const yT = step => TB - (step - 30) * SP / 2; // step: letter index + 7 * octave; E4 = 30
+const yB = step => BB - (step - 18) * SP / 2; // G2 = 18
+function el(tag, attrs, parent, text) {
+  const e = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (text != null) e.textContent = text;
+  parent.appendChild(e); return e;
+}
+function midiToStep(m) {
+  const map = [0,0.5,1,1.5,2,3,3.5,4,4.5,5,5.5,6];
+  const st = n => map[((n % 12) + 12) % 12] + 7 * (Math.floor(n / 12) - 1);
+  const n = Math.floor(m), f = m - n;
+  return st(n) + (st(n + 1) - st(n)) * f;
+}
+function drawNote(g, x, step, yfn, staffMid, acc, ghost) {
+  const y = yfn(step);
+  const lowLedger = yfn === yT ? 28 : 16, highLedger = yfn === yT ? 42 : 30;
+  for (let s = lowLedger; s >= step; s -= 2) el("line", { x1: x - 13, x2: x + 13, y1: yfn(s), y2: yfn(s), class: "ln" }, g);
+  for (let s = highLedger; s <= step; s += 2) el("line", { x1: x - 13, x2: x + 13, y1: yfn(s), y2: yfn(s), class: "ln" }, g);
+  el("ellipse", { cx: x, cy: y, rx: 8, ry: 5.6, transform: `rotate(-22 ${x} ${y})`, class: ghost ? "ghost" : "note" }, g);
+  if (acc) el("text", { x: x - 24, y: y + 6, class: ghost ? "accg" : "acc" }, g, accSym(acc));
+  if (ghost) return;
+  if (step < staffMid) el("line", { x1: x + 7.4, x2: x + 7.4, y1: y - 2, y2: y - 36, class: "stem" }, g);
+  else el("line", { x1: x - 7.4, x2: x - 7.4, y1: y + 2, y2: y + 36, class: "stem" }, g);
+}
+let playheadEl = null, traceG = null;
+function renderStaff() {
+  const svg = $("staff"); svg.innerHTML = "";
+  const g = el("g", {}, svg);
+  for (let i = 0; i < 5; i++) {
+    el("line", { x1: 20, x2: X1, y1: TB - i * SP, y2: TB - i * SP, class: "ln" }, g);
+    el("line", { x1: 20, x2: X1, y1: BB - i * SP, y2: BB - i * SP, class: "ln" }, g);
+  }
+  for (const x of [20, X0, XM, X1]) el("line", { x1: x, x2: x, y1: TB - 4 * SP, y2: BB, class: "bar" }, g);
+  el("text", { x: 24, y: TB + 12, class: "clef", "font-size": 72 }, g, "𝄞");
+  el("text", { x: 26, y: BB - 13, class: "clef", "font-size": 44 }, g, "𝄢");
+  for (const yb of [TB, BB]) { el("text", { x: 70, y: yb - 25, class: "ts" }, g, "4"); el("text", { x: 70, y: yb + 1, class: "ts" }, g, "4"); }
+  el("text", { x: X0 + 8, y: 26, class: "lbl" }, g, "PIANO");
+  el("text", { x: XM + 8, y: 26, class: "lbl" }, g, "YOU");
+
+  const note = (state.running && state.cycleNote) || state.seq[state.idx];
+  if (note) {
+    // band showing the in-tune zone of the target, in the sing bar
+    const ty = yT(note.step), tol = +els.tol.value / 100;
+    const yHi = yT(midiToStep(note.midi + tol) + (note.step - midiToStep(note.midi)));
+    const yLo = yT(midiToStep(note.midi - tol) + (note.step - midiToStep(note.midi)));
+    el("rect", { x: XM + 4, y: Math.min(yHi, yLo) - 3, width: X1 - XM - 8, height: Math.abs(yLo - yHi) + 6, class: "bandr" }, g);
+    for (const x of [X0 + 70, X0 + 230]) {
+      drawNote(g, x, note.step, yT, 34, note.acc);
+      drawNote(g, x, note.step - 7, yB, 22, note.acc);
+    }
+    if (els.showTarget.checked) for (const x of [XM + 70, XM + 230]) drawNote(g, x, note.step, yT, 34, note.acc, true);
+    el("rect", { x: (XM + X1) / 2 - 10, y: BB - 3 * SP, width: 20, height: 6, class: "rest" }, g);
+    if (!els.showTarget.checked) el("rect", { x: (XM + X1) / 2 - 10, y: TB - 3 * SP, width: 20, height: 6, class: "rest" }, g);
+    if (state.lastResults) state.lastResults.forEach((r, i) => {
+      const x = XM + 70 + i * 160;
+      el("text", { x: x - 18, y: BB + 30, class: "res", fill: `var(--${r.cls === "silent" ? "muted" : r.cls})` }, g, r.cls === "silent" ? "no voice" : fmtC(r.cents));
+    });
+  }
+  traceG = el("g", {}, svg);
+  playheadEl = el("line", { x1: X0 + 8, x2: X0 + 8, y1: TB - 4 * SP - 18, y2: BB + 18, class: "ph", opacity: state.running ? 1 : 0 }, svg);
+}
+function movePlayhead(ph) {
+  const x = ph < 1 ? X0 + 8 + ph * (XM - X0 - 8) : XM + 8 + Math.min(1, ph - 1) * (X1 - XM - 16);
+  playheadEl.setAttribute("x1", x); playheadEl.setAttribute("x2", x); playheadEl.setAttribute("opacity", 1);
+}
+function drawTrace() {
+  const note = state.cycleNote; if (!note || !traceG) return;
+  const off = note.step - midiToStep(note.midi);  // keeps the target's spelling on its staff line
+  const paths = { good: "", near: "", off: "" }; let prev = null;
+  for (const p of state.trace) {
+    if (p.cents == null) { prev = null; continue; }
+    const c = Math.max(-650, Math.min(650, p.cents));
+    const x = XM + 8 + (p.ph - 1) * (X1 - XM - 16);
+    const y = yT(midiToStep(note.midi + c / 100) + off);
+    const cls = classify(p.cents);
+    if (prev) paths[cls] += `M${prev[0].toFixed(1)} ${prev[1].toFixed(1)}L${x.toFixed(1)} ${y.toFixed(1)}`;
+    prev = [x, y];
+  }
+  traceG.innerHTML = "";
+  for (const k in paths) if (paths[k]) el("path", { d: paths[k], class: "tr " + k }, traceG);
+}
+
+// ---------- Wiring ----------
+$("startBtn").addEventListener("click", () => state.running ? stop() : start());
+$("hearBtn").addEventListener("click", async () => {
+  await ensureAudio();
+  const n = (state.running && state.cycleNote) || state.seq[state.idx];
+  if (n) playHit(n, ctx.currentTime + 0.05, 1.1);
+});
+els.seq.addEventListener("change", () => { stop(); refreshStartAt(); saveSettings(); });
+els.custom.addEventListener("change", () => { stop(); refreshStartAt(); saveSettings(); });
+els.startAt.addEventListener("change", () => { if (!state.running) { state.idx = +els.startAt.value; renderStaff(); updateLabels(); } });
+for (const k of ["tempo","tol"]) els[k].addEventListener("input", () => { updateLabels(); if (!state.running) renderStaff(); saveSettings(); });
+for (const k of ["anyOct","showTarget","click","loop"]) els[k].addEventListener("change", () => { if (!state.running) renderStaff(); saveSettings(); });
+document.addEventListener("keydown", e => {
+  if (e.code === "Space" && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) { e.preventDefault(); $("startBtn").click(); }
+});
+
+loadSettings();
+refreshStartAt();
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
